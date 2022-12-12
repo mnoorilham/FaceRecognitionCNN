@@ -10,8 +10,9 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import confusion_matrix
 
 import keras
-from keras.models import Sequential, Model
+from keras.models import Sequential, Model, load_model
 from keras.layers import Dense, Activation, Input, Conv2D, MaxPool2D, Flatten
+
 
 from keras.utils import to_categorical
 
@@ -178,7 +179,7 @@ x_test = x_test.reshape(x_test.shape[0], x_test.shape[1], x_test.shape[2], 1)
 
 print((x_train.shape, x_test.shape))
 
-# Buat CNN Model
+# # Buat CNN Model
 def cnn_model(input_shape):
     model = Sequential()
 
@@ -219,8 +220,8 @@ def cnn_model(input_shape):
                   metrics=['accuracy'])
 
     return model
-
-# Training CNN Model
+#
+# # Training CNN Model
 input_shape = x_train[0].shape
 
 EPOCHS = 10
@@ -235,3 +236,134 @@ history = model.fit(x_train,
                     shuffle=True,
                     validation_split=0.15   # 15% of train dataset will be used as validation set
                     )
+
+
+# # Evaluasi Model
+# def evaluate_model_(history):
+#     names = [['accuracy', 'val_accuracy'],
+#              ['loss', 'val_loss']]
+#     for name in names:
+#         fig1, ax_acc = plt.subplots()
+#         plt.plot(history.history[name[0]])
+#         plt.plot(history.history[name[1]])
+#         plt.xlabel('Epoch')
+#         plt.ylabel(name[0])
+#         plt.title('Model - ' + name[0])
+#         plt.legend(['Training', 'Validation'], loc='lower right')
+#         plt.grid()
+#         plt.show()
+# #
+# #
+# evaluate_model_(history)
+
+model.save("model-cnn-facerecognition.h5")
+
+# predict test data
+y_pred=model.predict(x_test)
+
+# plot confusion matriks
+# def plot_confusion_matrix(cm, classes,
+#                           normalize=False,
+#                           title='Confusion matrix',
+#                           cmap=plt.cm.Blues):
+#     if normalize:
+#         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+#
+#     plt.figure(figsize=(8, 8))
+#
+#     plt.imshow(cm, interpolation='nearest', cmap=cmap)
+#     plt.title(title)
+#     plt.colorbar()
+#
+#     tick_marks = np.arange(len(classes))
+#     plt.xticks(tick_marks, classes, rotation=45)
+#     plt.yticks(tick_marks, classes)
+#
+#     fmt = '.2f' if normalize else 'd'
+#     thresh = cm.max() / 2.
+#     for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+#         plt.text(j, i, format(cm[i, j], fmt),
+#                  horizontalalignment="center",
+#                  color="white" if cm[i, j] > thresh else "black")
+#
+#     plt.tight_layout()
+#     plt.ylabel('True label')
+#     plt.xlabel('Predicted label')
+#     plt.show()
+#
+#
+# # Compute confusion matrix
+# cnf_matrix = confusion_matrix(y_test.argmax(axis=1), y_pred.argmax(axis=1))
+# np.set_printoptions(precision=2)
+#
+#
+# # Plot non-normalized confusion matrix
+# plot_confusion_matrix(cnf_matrix, classes=labels,normalize=False,
+#                       title='Confusion matrix')
+#
+#
+# print(classification_report(y_test.argmax(axis=1),
+#                             y_pred.argmax(axis=1),
+#                             target_names=labels))
+
+
+
+def draw_ped(img, label, x0, y0, xt, yt, color=(255,127,0), text_color=(255,255,255)):
+
+    (w, h), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+    cv2.rectangle(img,
+                  (x0, y0 + baseline),
+                  (max(xt, x0 + w), yt),
+                  color,
+                  2)
+    cv2.rectangle(img,
+                  (x0, y0 - h),
+                  (x0 + w, y0 + baseline),
+                  color,
+                  -1)
+    cv2.putText(img,
+                label,
+                (x0, y0),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                text_color,
+                1,
+                cv2.LINE_AA)
+    return img
+#
+#
+face_cascade = cv2.CascadeClassifier('haarcascades/haarcascade_frontalface_default.xml')
+
+# --------- load Keras CNN model -------------
+model = load_model("model-cnn-facerecognition.h5")
+print("[INFO] finish load model...")
+
+cap = cv2.VideoCapture(0)
+while cap.isOpened():
+    ret, frame = cap.read()
+    if ret:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, 1.1, 5)
+        for (x, y, w, h) in faces:
+
+            face_img = gray[y:y + h, x:x + w]
+            face_img = cv2.resize(face_img, (50, 50))
+            face_img = face_img.reshape(1, 50, 50, 1)
+
+            result = model.predict(face_img)
+            idx = result.argmax(axis=1)
+            confidence = result.max(axis=1) * 100
+            if confidence > 80:
+                label_text = "%s (%.2f %%)" % (labels[idx], confidence)
+            else:
+                label_text = "N/A"
+            frame = draw_ped(frame, label_text, x, y, x + w, y + h, color=(0, 255, 255), text_color=(50, 50, 50))
+
+        cv2.imshow('Detect Face', frame)
+    else:
+        break
+    if cv2.waitKey(10) == ord('q'):
+        break
+
+cv2.destroyAllWindows()
+cap.release()
