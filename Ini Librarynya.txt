@@ -1,0 +1,10 @@
+Tensorflow
+Keras
+mtcnn
+pillow
+opencv-python
+numpy
+matplotlib
+scipy
+sklearn
+scikit-learn
