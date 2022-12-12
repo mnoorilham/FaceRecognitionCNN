@@ -4,7 +4,7 @@ Sistem Absen Otomatis dengan Face Recognition menggunakan metode CNN
 Library yang digunakan:
 Tensorflow
 Keras
-mtcnn
+mtcnn 
 pillow
 opencv-python
 numpy
